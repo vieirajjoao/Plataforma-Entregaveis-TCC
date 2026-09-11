@@ -51,7 +51,7 @@ export default async function ProfessorDashboard() {
                   <summary className="p-6 cursor-pointer list-none flex justify-between items-center hover:bg-gray-50 transition">
                     <div>
                       <h2 className="text-xl font-bold text-gray-800 group-open:text-emerald-700 transition-colors">{turma.nome}</h2>
-                      <p className="text-sm text-gray-500 mt-1">{turma.diaSemana} | {turma.horario} | Sala: {turma.sala}</p>
+                      <p className="text-sm text-gray-500 mt-1">Sala: {turma.sala}</p>
                     </div>
                     <div className="flex items-center gap-4">
                       <span className="text-sm bg-gray-200 px-3 py-1 rounded-full text-gray-700 font-medium">

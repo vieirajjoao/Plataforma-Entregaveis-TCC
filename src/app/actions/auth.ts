@@ -26,6 +26,12 @@ export async function loginAluno(formData: FormData) {
   const resultadoBusca = await db.select().from(alunos).where(eq(alunos.authUserId, data.user.id)).limit(1)
   const aluno = resultadoBusca[0]
 
+  // BLOQUEIO: Se o aluno existir, mas estiver inativo, destrói a sessão e bloqueia
+  if (aluno && aluno.ativo === false) {
+    await supabase.auth.signOut()
+    throw new Error('Esta conta foi desativada pelo professor.')
+  }
+
   if (aluno?.precisaTrocarSenha) {
     redirect('/dashboard/aluno/trocar-senha')
   } else {

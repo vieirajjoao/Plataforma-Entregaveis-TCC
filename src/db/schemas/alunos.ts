@@ -10,4 +10,5 @@ export const alunos = pgTable('alunos', {
   precisaTrocarSenha: boolean('precisa_trocar_senha').default(true).notNull(),
   turmaId: uuid('turma_id').references(() => turmas.id).notNull(),
   authUserId: uuid('auth_user_id').unique(), 
+  ativo: boolean('ativo').default(true).notNull(),
 });

@@ -59,3 +59,21 @@ export async function resetarSenhaAluno(alunoId: string, authUserId: string) {
 
   revalidatePath('/dashboard/professor')
 }
+
+export async function inativarAluno(alunoId: string) {
+  // Apenas muda o status para falso. Não apagamos as atividades e nem o Auth!
+  await db.update(alunos)
+    .set({ ativo: false })
+    .where(eq(alunos.id, alunoId))
+
+  revalidatePath('/dashboard/professor')
+}
+
+export async function restaurarAluno(alunoId: string) {
+  // Retorna o status do aluno para ativo, permitindo o login novamente
+  await db.update(alunos)
+    .set({ ativo: true })
+    .where(eq(alunos.id, alunoId))
+
+  revalidatePath('/dashboard/professor')
+}

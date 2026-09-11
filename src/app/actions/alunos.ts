@@ -1,0 +1,61 @@
+'use server'
+
+import { db } from '@/src/db'
+import { alunos } from '@/src/db/schemas/alunos'
+import { createClient } from '@supabase/supabase-js'
+import { eq } from 'drizzle-orm'
+import { revalidatePath } from 'next/cache'
+import {getSessaoAtual} from '@/src/lib/auth'
+
+// Usa a Service Role Key para ter permissão de Admin (criar usuários sem confirmação de e-mail)
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY! 
+)
+
+function gerarLogin(nome: string, idAleatorio: string) {
+  const partes = nome.trim().toLowerCase().split(' ')
+  const base = partes.length > 1 ? `${partes[0]}.${partes[partes.length - 1]}` : partes[0]
+  const loginLimpo = base.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  return `${loginLimpo}${idAleatorio}`
+}
+
+export async function adicionarAluno(formData: FormData) {
+  const turmaId = formData.get('turmaId') as string // Pega o ID do input escondido
+  const nome = formData.get('nome') as string
+  const idade = parseInt(formData.get('idade') as string)
+  
+  const idAleatorio = Math.floor(100 + Math.random() * 900).toString()
+  const login = gerarLogin(nome, idAleatorio)
+  const emailFantasma = `${login}@portal.local`
+  const senhaTemporaria = Math.random().toString(36).slice(-6).toUpperCase()
+
+  const { data: authData, error } = await supabaseAdmin.auth.admin.createUser({
+    email: emailFantasma,
+    password: senhaTemporaria,
+    email_confirm: true,
+  })
+
+  if (error) throw new Error('Erro Supabase: ' + error.message)
+
+  await db.insert(alunos).values({
+    nome, idade, login, senhaTemporaria, precisaTrocarSenha: true,
+    turmaId, authUserId: authData.user.id
+  })
+
+  revalidatePath('/dashboard/professor')
+}
+
+export async function resetarSenhaAluno(alunoId: string, authUserId: string) {
+  const novaSenhaTemporaria = Math.random().toString(36).slice(-6).toUpperCase()
+
+  await supabaseAdmin.auth.admin.updateUserById(authUserId, {
+    password: novaSenhaTemporaria
+  })
+
+  await db.update(alunos)
+    .set({ senhaTemporaria: novaSenhaTemporaria, precisaTrocarSenha: true })
+    .where(eq(alunos.id, alunoId))
+
+  revalidatePath('/dashboard/professor')
+}

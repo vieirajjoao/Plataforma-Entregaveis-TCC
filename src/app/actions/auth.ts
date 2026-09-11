@@ -73,3 +73,9 @@ export async function atualizarSenhaPrimeiroAcesso(authUserId: string, formData:
 
   redirect('/dashboard/aluno')
 }
+
+export async function logout() {
+  const supabase = await createClientSSR()
+  await supabase.auth.signOut()
+  redirect('/') // Manda de volta para a tela inicial
+}

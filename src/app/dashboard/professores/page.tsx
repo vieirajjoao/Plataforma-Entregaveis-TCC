@@ -3,6 +3,7 @@ import { turmas, alunos, professores, atividades } from '@/src/db/schemas'
 import { eq, desc } from 'drizzle-orm'
 import { adicionarAluno, inativarAluno, restaurarAluno } from '@/src/app/actions/alunos'
 import FormularioNovaTurma from '@/src/components/FormularioNovaTurma'
+import BotaoSair from '@/src/components/BotaoSair'
 
 export default async function ProfessorDashboard() {
   const professorList = await db.select().from(professores).limit(1)
@@ -26,6 +27,7 @@ export default async function ProfessorDashboard() {
             <h1 className="text-3xl font-bold text-gray-800">Painel do Professor</h1>
             <p className="text-gray-600 mt-1">Bem-vindo(a), {professorAtual.nome}</p>
           </div>
+          <BotaoSair /> {/* <-- BOTAO AQUI */}
         </header>
 
         {/* BOTÃO E FORMULÁRIO OCULTO DE NOVA TURMA */}

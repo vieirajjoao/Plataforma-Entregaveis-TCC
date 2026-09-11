@@ -3,8 +3,8 @@ import { alunos, turmas, atividades } from '@/src/db/schemas'
 import { eq, desc } from 'drizzle-orm'
 import { createClientSSR } from '@/src/lib/supabase'
 import { redirect } from 'next/navigation'
-// import { submeterAtividade } from '@/src/app/actions/atividades'
 import FormularioEnvio from '@/src/components/FormularioEnvio'
+import BotaoSair from '@/src/components/BotaoSair'
 
 export default async function AlunoDashboard() {
   const supabase = await createClientSSR()
@@ -32,9 +32,12 @@ export default async function AlunoDashboard() {
             <h1 className="text-2xl font-bold text-gray-800">Olá, {aluno.nome}</h1>
             <p className="text-sm text-gray-500">Turma: {turma.nome} | {turma.sala}</p>
           </div>
-          <p className="font-semibold text-blue-600 bg-blue-50 px-4 py-2 rounded-lg">
-            Total de Envios: {historicoEnvios.length}
-          </p>
+          <div className="flex items-center gap-4">
+            <p className="font-semibold text-blue-600 bg-blue-50 px-4 py-2 rounded-lg hidden md:block">
+              Total de Envios: {historicoEnvios.length}
+            </p>
+            <BotaoSair /> {/* <-- BOTAO AQUI */}
+          </div>
         </header>
 
         {/* COMPONENTE INTERATIVO IMPORTADO AQUI */}

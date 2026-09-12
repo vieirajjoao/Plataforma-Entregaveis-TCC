@@ -21,38 +21,57 @@ function gerarLogin(nome: string, idAleatorio: string) {
 }
 
 export async function adicionarAluno(formData: FormData) {
-  const turmaId = formData.get('turmaId') as string
-  const nome = formData.get('nome') as string
-  const idade = parseInt(formData.get('idade') as string)
-  
-  const idAleatorio = Math.floor(100 + Math.random() * 900).toString()
-  
-  // (mantenha sua função gerarLogin() aqui se estiver usando)
-  const login = gerarLogin(nome, idAleatorio)
-  
-  const emailFantasma = `${login}@portal.local`
-  const senhaTemporaria = Math.random().toString(36).slice(-6).toUpperCase()
+  try {
+    const turmaId = formData.get('turmaId') as string
+    const nome = formData.get('nome') as string
+    const idade = parseInt(formData.get('idade') as string)
+    
+    // Gera o login internamente (Ex: joao.845) sem depender de funções externas
+    const primeiroNome = nome.split(' ')[0].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    const idAleatorio = Math.floor(100 + Math.random() * 900).toString()
+    const login = `${primeiroNome}.${idAleatorio}`
+    
+    const emailFantasma = `${login}@portal.local`
+    const senhaTemporaria = Math.random().toString(36).slice(-6).toUpperCase()
 
-  const { data: authData, error } = await supabaseAdmin.auth.admin.createUser({
-    email: emailFantasma,
-    password: senhaTemporaria,
-    email_confirm: true,
-  })
+    // 1. Cria no Supabase
+    const { data: authData, error } = await supabaseAdmin.auth.admin.createUser({
+      email: emailFantasma,
+      password: senhaTemporaria,
+      email_confirm: true,
+    })
 
-  // 1º RETORNO: Retorna success false e a mensagem de erro
-  if (error) {
-    return { success: false, error: 'Erro ao criar conta de acesso: ' + error.message }
+    if (error) {
+      return { success: false, error: 'Erro no servidor de contas: ' + error.message }
+    }
+
+    if (!authData.user) {
+      return { success: false, error: 'Falha desconhecida ao criar usuário no Supabase.' }
+    }
+
+    // 2. Salva no Drizzle
+    await db.insert(alunos).values({
+      nome, 
+      idade, 
+      login, 
+      senhaTemporaria, 
+      precisaTrocarSenha: true,
+      turmaId, 
+      authUserId: authData.user.id
+    })
+
+    // 3. Revalida a tela
+    revalidatePath('/dashboard/professor')
+    return { success: true, error: null }
+
+  } catch (err) {
+    // Se estourar QUALQUER erro (banco de dados, variável nula, etc), cai aqui!
+    console.error("Erro CRÍTICO ao adicionar aluno:", err)
+    return { 
+      success: false, 
+      error: 'Erro interno no banco de dados. Tente novamente.' 
+    }
   }
-
-  await db.insert(alunos).values({
-    nome, idade, login, senhaTemporaria, precisaTrocarSenha: true,
-    turmaId, authUserId: authData.user.id
-  })
-
-  revalidatePath('/dashboard/professor')
-  
-  // 2º RETORNO: Retorna success true e error null
-  return { success: true, error: null }
 }
 
 export async function resetarSenhaAluno(alunoId: string, authUserId: string) {

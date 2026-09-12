@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { db } from '@/src/db'
 import { turmas, alunos, professores, atividades } from '@/src/db/schemas'
 import { eq, desc } from 'drizzle-orm'

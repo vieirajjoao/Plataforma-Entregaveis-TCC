@@ -17,7 +17,7 @@ export async function submeterAtividade(formData: FormData) {
   const arquivos = formData.getAll('arquivos') as File[] // Captura múltiplos arquivos
 
   if (!titulo || !descricao) {
-    throw new Error('Título e descrição são obrigatórios.')
+    return { success: false, error: 'Título e descrição são obrigatórios.' }
   }
 
   const allowedTypes = [
@@ -33,14 +33,14 @@ export async function submeterAtividade(formData: FormData) {
     if (arquivo.size === 0) continue
 
     if (!allowedTypes.includes(arquivo.type)) {
-      throw new Error(`O arquivo ${arquivo.name} possui um formato não suportado.`)
+      return { success: false, error: `Formato não suportado.` }
     }
 
     const nomeSeguro = arquivo.name.replace(/[^a-zA-Z0-9.\-]/g, '_')
     const path = `envios-${alunoId}-${Date.now()}-${nomeSeguro}`
 
     const { data, error } = await supabase.storage.from('tcc-arquivos').upload(path, arquivo)
-    if (error) throw new Error(`Erro no upload de ${arquivo.name}: ` + error.message)
+    if (error) return { success: false, error: `Erro no upload.` }
 
     const fileUrl = supabase.storage.from('tcc-arquivos').getPublicUrl(data.path).data.publicUrl
     
@@ -55,4 +55,5 @@ export async function submeterAtividade(formData: FormData) {
   })
 
   revalidatePath('/dashboard/aluno')
+  return { success: true, error: null }
 }

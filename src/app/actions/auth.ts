@@ -10,26 +10,45 @@ import { createClientSSR } from '@/src/lib/supabase'
 // Importa o cliente padrão para usarmos como Admin
 import { createClient } from '@supabase/supabase-js'
 
-export async function loginAluno(formData: FormData) {
-  const login = formData.get('login') as string
-  const senha = formData.get('senha') as string
-  const emailFantasma = `${login}@portal.local`
+export async function loginProfessor(prevState: any, formData: FormData) {
+  const email = formData.get('email') as string
+  const password = formData.get('password') as string // Alterado para buscar 'password'
 
-  const supabase = await createClientSSR() // <-- Usa o novo cliente com cookies
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: emailFantasma,
-    password: senha,
+  const supabase = await createClientSSR()
+  const { data, error } = await supabase.auth.signInWithPassword({ 
+    email, 
+    password // Repassando a variável correta
   })
 
-  if (error || !data.user) throw new Error('Credenciais inválidas.')
+  // Se der erro, retorna o objeto com a mensagem em vez de quebrar a tela
+  if (error || !data.user) {
+    return { message: 'E-mail ou senha incorretos.' }
+  }
+
+  redirect('/dashboard/professores')
+}
+
+export async function loginAluno(prevState: any, formData: FormData) {
+  const username = formData.get('username') as string // Alterado para buscar 'username'
+  const password = formData.get('password') as string // Alterado para buscar 'password'
+  const emailFantasma = `${username}@portal.local`
+
+  const supabase = await createClientSSR()
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: emailFantasma,
+    password: password,
+  })
+
+  if (error || !data.user) {
+    return { message: 'Login ou senha incorretos.' }
+  }
 
   const resultadoBusca = await db.select().from(alunos).where(eq(alunos.authUserId, data.user.id)).limit(1)
   const aluno = resultadoBusca[0]
 
-  // BLOQUEIO: Se o aluno existir, mas estiver inativo, destrói a sessão e bloqueia
   if (aluno && aluno.ativo === false) {
     await supabase.auth.signOut()
-    throw new Error('Esta conta foi desativada pelo professor.')
+    return { message: 'Sua conta foi desativada pelo professor.' }
   }
 
   if (aluno?.precisaTrocarSenha) {
@@ -39,41 +58,31 @@ export async function loginAluno(formData: FormData) {
   }
 }
 
-export async function loginProfessor(formData: FormData) {
-  const email = formData.get('email') as string
-  const senha = formData.get('senha') as string
+export async function atualizarSenhaPrimeiroAcesso(prevState: any, formData: FormData) {
+  const authUserId = formData.get('authUserId') as string
+  const password = formData.get('password') as string
 
-  const supabase = await createClientSSR() // <-- Atualize aqui também
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha })
+  if (!password || password.length < 6) {
+    return { message: 'A senha deve ter pelo menos 6 caracteres.' }
+  }
 
-  if (error || !data.user) throw new Error('E-mail ou senha inválidos.')
-  redirect('/dashboard/professores')
-}
-
-export async function atualizarSenhaPrimeiroAcesso(authUserId: string, formData: FormData) {
-  const novaSenha = formData.get('novaSenha') as string
-  
-  // AQUI USAMOS O CREATECLIENT PADRÃO!
-  // Pois precisamos da chave Service Role (Admin) para pular as regras de segurança
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
   
-  // Como estamos usando o admin, ele tem permissão para alterar a senha direto pelo ID
-  await supabaseAdmin.auth.admin.updateUserById(authUserId, { password: novaSenha })
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(authUserId, { password })
 
-  // Atualiza a flag e apaga a senha temporária no nosso banco Drizzle
+  if (error) {
+    return { message: 'Erro ao atualizar a senha: ' + error.message }
+  }
+
   await db.update(alunos)
-    .set({ 
-      senhaTemporaria: null, 
-      precisaTrocarSenha: false 
-    })
+    .set({ senhaTemporaria: null, precisaTrocarSenha: false })
     .where(eq(alunos.authUserId, authUserId))
 
   redirect('/dashboard/aluno')
 }
-
 export async function logout() {
   const supabase = await createClientSSR()
   await supabase.auth.signOut()

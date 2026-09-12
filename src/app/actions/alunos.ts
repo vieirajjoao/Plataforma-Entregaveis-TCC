@@ -21,12 +21,15 @@ function gerarLogin(nome: string, idAleatorio: string) {
 }
 
 export async function adicionarAluno(formData: FormData) {
-  const turmaId = formData.get('turmaId') as string // Pega o ID do input escondido
+  const turmaId = formData.get('turmaId') as string
   const nome = formData.get('nome') as string
   const idade = parseInt(formData.get('idade') as string)
   
   const idAleatorio = Math.floor(100 + Math.random() * 900).toString()
+  
+  // (mantenha sua função gerarLogin() aqui se estiver usando)
   const login = gerarLogin(nome, idAleatorio)
+  
   const emailFantasma = `${login}@portal.local`
   const senhaTemporaria = Math.random().toString(36).slice(-6).toUpperCase()
 
@@ -36,7 +39,10 @@ export async function adicionarAluno(formData: FormData) {
     email_confirm: true,
   })
 
-  if (error) throw new Error('Erro Supabase: ' + error.message)
+  // 1º RETORNO: Retorna success false e a mensagem de erro
+  if (error) {
+    return { success: false, error: 'Erro ao criar conta de acesso: ' + error.message }
+  }
 
   await db.insert(alunos).values({
     nome, idade, login, senhaTemporaria, precisaTrocarSenha: true,
@@ -44,6 +50,9 @@ export async function adicionarAluno(formData: FormData) {
   })
 
   revalidatePath('/dashboard/professor')
+  
+  // 2º RETORNO: Retorna success true e error null
+  return { success: true, error: null }
 }
 
 export async function resetarSenhaAluno(alunoId: string, authUserId: string) {

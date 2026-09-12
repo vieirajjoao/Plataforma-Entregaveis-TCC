@@ -4,6 +4,8 @@ import { eq, desc } from 'drizzle-orm'
 import { adicionarAluno, inativarAluno, restaurarAluno } from '@/src/app/actions/alunos'
 import FormularioNovaTurma from '@/src/components/FormularioNovaTurma'
 import BotaoSair from '@/src/components/BotaoSair'
+import FormularioNovoAluno from '@/src/components/FormularioNovoAluno'
+
 
 export default async function ProfessorDashboard() {
   const professorList = await db.select().from(professores).limit(1)
@@ -66,14 +68,7 @@ export default async function ProfessorDashboard() {
                   {/* CONTEÚDO EXPANSÍVEL (Alunos e Envios - Só aparece ao clicar) */}
                   <div className="p-6 pt-0 border-t border-gray-100 bg-gray-50/50">
                     
-                    <form action={adicionarAluno} className="flex flex-wrap gap-2 my-6 items-center bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
-                      <input type="hidden" name="turmaId" value={turma.id} />
-                      <input type="text" name="nome" placeholder="Nome do Aluno" required className="border p-2 rounded text-sm flex-1 min-w-[200px]" />
-                      <input type="number" name="idade" placeholder="Idade" required className="border p-2 rounded text-sm w-24" />
-                      <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-semibold">
-                        + Adicionar Aluno
-                      </button>
-                    </form>
+                    <FormularioNovoAluno turmaId="{turma.id}"/>
 
                     {/* LISTA DE ALUNOS ATIVOS */}
                     {alunosDestaTurma.length > 0 ? (

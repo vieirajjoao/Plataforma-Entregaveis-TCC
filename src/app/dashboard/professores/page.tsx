@@ -70,7 +70,7 @@ export default async function ProfessorDashboard() {
                   {/* CONTEÚDO EXPANSÍVEL (Alunos e Envios - Só aparece ao clicar) */}
                   <div className="p-6 pt-0 border-t border-gray-100 bg-gray-50/50">
                     
-                    <FormularioNovoAluno turmaId="{turma.id}"/>
+                    <FormularioNovoAluno turmaId={turma.id}/>
 
                     {/* LISTA DE ALUNOS ATIVOS */}
                     {alunosDestaTurma.length > 0 ? (

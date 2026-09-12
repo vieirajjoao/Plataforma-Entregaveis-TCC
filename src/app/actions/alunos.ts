@@ -69,7 +69,7 @@ export async function adicionarAluno(formData: FormData) {
     console.error("Erro CRÍTICO ao adicionar aluno:", err)
     return { 
       success: false, 
-      error: 'Erro interno no banco de dados. Tente novamente.' 
+      error: String(err)
     }
   }
 }

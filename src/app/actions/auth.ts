@@ -4,7 +4,7 @@ import { db } from '@/src/db'
 import { alunos } from '@/src/db/schemas/alunos'
 import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
-
+import  {professores} from '@/src/db/schemas/professores'
 // Importa o cliente com cookies para o login normal
 import { createClientSSR } from '@/src/lib/supabase' 
 // Importa o cliente padrão para usarmos como Admin
@@ -87,4 +87,33 @@ export async function logout() {
   const supabase = await createClientSSR()
   await supabase.auth.signOut()
   redirect('/') // Manda de volta para a tela inicial
+}
+
+
+export async function cadastrarProfessor(prevState: any, formData: FormData) {
+  const nome = formData.get('nome') as string
+  const email = formData.get('email') as string
+  const password = formData.get('password') as string
+
+  const supabase = await createClientSSR()
+
+  // 1. Cria a conta no Supabase Auth
+  const { data, error } = await supabase.auth.signUp({ email, password })
+
+  if (error) return { message: 'Erro ao criar conta: ' + error.message }
+  if (!data.user) return { message: 'Falha ao gerar usuário.' }
+
+  // 2. Registra o professor no banco de dados (Drizzle)
+  try {
+    await db.insert(professores).values({
+      nome,
+      email,
+      authUserId: data.user.id
+    })
+  } catch (err) {
+    return { message: 'Erro ao salvar os dados do professor.' }
+  }
+
+  // Se tudo der certo, manda para o dashboard
+  redirect('/dashboard/professores')
 }

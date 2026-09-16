@@ -74,18 +74,37 @@ export async function adicionarAluno(formData: FormData) {
   }
 }
 
-export async function resetarSenhaAluno(alunoId: string, authUserId: string) {
-  const novaSenhaTemporaria = Math.random().toString(36).slice(-6).toUpperCase()
+export async function resetarSenhaAluno(alunoId: string, authUserId: string | null) {
+  try {
+    // 1. Gera uma nova senha provisória de 6 caracteres
+    const novaSenhaTemporaria = Math.random().toString(36).slice(-6).toUpperCase()
 
-  await supabaseAdmin.auth.admin.updateUserById(authUserId, {
-    password: novaSenhaTemporaria
-  })
+    // 2. Atualiza a senha lá no Supabase (se o usuário existir)
+    if (authUserId) {
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
+        password: novaSenhaTemporaria
+      })
+      
+      if (error) {
+        console.error('Erro ao redefinir no provedor:', error.message)
+        return // Interrompe a execução, mas sem retornar um objeto
+      }
+    }
 
-  await db.update(alunos)
-    .set({ senhaTemporaria: novaSenhaTemporaria, precisaTrocarSenha: true })
-    .where(eq(alunos.id, alunoId))
+    // 3. Atualiza no Drizzle e força o aluno a trocar na próxima vez que logar
+    await db.update(alunos)
+      .set({ 
+        senhaTemporaria: novaSenhaTemporaria, 
+        precisaTrocarSenha: true 
+      })
+      .where(eq(alunos.id, alunoId))
 
-  revalidatePath('/dashboard/professor')
+    // 4. Recarrega a página para exibir a nova senha
+    revalidatePath('/dashboard/professor')
+    
+  } catch (err) {
+    console.error("Erro ao resetar senha:", err)
+  }
 }
 
 export async function inativarAluno(alunoId: string) {
@@ -94,7 +113,7 @@ export async function inativarAluno(alunoId: string) {
     .set({ ativo: false })
     .where(eq(alunos.id, alunoId))
 
-  revalidatePath('/dashboard/professor')
+  revalidatePath('/dashboard/professor')  
 }
 
 export async function restaurarAluno(alunoId: string) {

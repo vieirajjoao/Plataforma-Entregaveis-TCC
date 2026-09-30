@@ -4,4 +4,5 @@ export const professores = pgTable('professores', {
   id: uuid('id').defaultRandom().primaryKey(),
   nome: varchar('nome', { length: 255 }).notNull(),
   email: varchar('email', { length: 255 }).notNull().unique(),
+  authUserId: uuid('auth_user_id').unique(),
 });

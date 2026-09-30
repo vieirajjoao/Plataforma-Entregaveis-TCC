@@ -74,18 +74,37 @@ export async function adicionarAluno(formData: FormData) {
   }
 }
 
-export async function resetarSenhaAluno(alunoId: string, authUserId: string) {
-  const novaSenhaTemporaria = Math.random().toString(36).slice(-6).toUpperCase()
+export async function resetarSenhaAluno(alunoId: string, authUserId: string | null) {
+  try {
+    const novaSenhaTemporaria = Math.random().toString(36).slice(-6).toUpperCase()
 
-  await supabaseAdmin.auth.admin.updateUserById(authUserId, {
-    password: novaSenhaTemporaria
-  })
+    // Type Narrowing: O TypeScript entende que, dentro deste bloco, 
+    // authUserId é garantidamente uma string, eliminando o risco de null.
+    if (authUserId) {
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
+        password: novaSenhaTemporaria
+      })
+      
+      if (error) {
+        console.error('Erro ao redefinir no provedor:', error.message)
+        return 
+      }
+    } else {
+      console.warn(`Aluno ${alunoId} não possui vínculo de autenticação (authUserId nulo).`)
+    }
 
-  await db.update(alunos)
-    .set({ senhaTemporaria: novaSenhaTemporaria, precisaTrocarSenha: true })
-    .where(eq(alunos.id, alunoId))
+    await db.update(alunos)
+      .set({ 
+        senhaTemporaria: novaSenhaTemporaria, 
+        precisaTrocarSenha: true 
+      })
+      .where(eq(alunos.id, alunoId))
 
-  revalidatePath('/dashboard/professor')
+    revalidatePath('/dashboard/professor')
+    
+  } catch (err) {
+    console.error("Erro ao resetar senha:", err)
+  }
 }
 
 export async function inativarAluno(alunoId: string) {

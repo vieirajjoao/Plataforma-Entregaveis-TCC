@@ -2,9 +2,9 @@
 
 import { useActionState } from 'react'
 import { loginProfessor } from '@/src/app/actions/auth'
+import Link from 'next/link'
 
 export default function LoginProfessor() {
-  // Hook do React para gerenciar o estado da Server Action
   const [state, formAction, isPending] = useActionState(loginProfessor, null)
 
   return (
@@ -12,7 +12,6 @@ export default function LoginProfessor() {
       <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8 border-t-4 border-emerald-600">
         <h1 className="text-2xl font-bold text-gray-800 text-center mb-6">Acesso do Professor</h1>
         
-        {/* EXIBIÇÃO DE ERRO ELEGANTE */}
         {state?.message && (
           <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm font-semibold text-center">
             {state.message}
@@ -27,7 +26,7 @@ export default function LoginProfessor() {
               type="email" 
               name="email" 
               autoComplete="username email" 
-              placeholder="professor@ufu.br" 
+              placeholder="professor@escola.br" 
               required 
               className="w-full border border-gray-300 rounded-lg p-3 outline-none focus:border-emerald-500"
             />
@@ -55,6 +54,15 @@ export default function LoginProfessor() {
             {isPending ? 'Entrando...' : 'Entrar no Painel'}
           </button>
         </form>
+
+        <div className="mt-6 text-center border-t border-gray-100 pt-4">
+          <p className="text-sm text-gray-600">
+            Ainda não tem acesso?{' '}
+            <Link href="/cadastro/professor" className="text-emerald-600 hover:underline font-semibold transition-colors">
+              Crie sua conta
+            </Link>
+          </p>
+        </div>
       </div>
     </main>
   )

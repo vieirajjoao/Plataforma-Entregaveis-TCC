@@ -76,10 +76,10 @@ export async function adicionarAluno(formData: FormData) {
 
 export async function resetarSenhaAluno(alunoId: string, authUserId: string | null) {
   try {
-    // 1. Gera uma nova senha provisória de 6 caracteres
     const novaSenhaTemporaria = Math.random().toString(36).slice(-6).toUpperCase()
 
-    // 2. Atualiza a senha lá no Supabase (se o usuário existir)
+    // Type Narrowing: O TypeScript entende que, dentro deste bloco, 
+    // authUserId é garantidamente uma string, eliminando o risco de null.
     if (authUserId) {
       const { error } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
         password: novaSenhaTemporaria
@@ -87,11 +87,12 @@ export async function resetarSenhaAluno(alunoId: string, authUserId: string | nu
       
       if (error) {
         console.error('Erro ao redefinir no provedor:', error.message)
-        return // Interrompe a execução, mas sem retornar um objeto
+        return 
       }
+    } else {
+      console.warn(`Aluno ${alunoId} não possui vínculo de autenticação (authUserId nulo).`)
     }
 
-    // 3. Atualiza no Drizzle e força o aluno a trocar na próxima vez que logar
     await db.update(alunos)
       .set({ 
         senhaTemporaria: novaSenhaTemporaria, 
@@ -99,7 +100,6 @@ export async function resetarSenhaAluno(alunoId: string, authUserId: string | nu
       })
       .where(eq(alunos.id, alunoId))
 
-    // 4. Recarrega a página para exibir a nova senha
     revalidatePath('/dashboard/professor')
     
   } catch (err) {

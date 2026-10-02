@@ -4,7 +4,7 @@ import { createClientSSR } from '@/src/lib/supabase'
 import { redirect } from 'next/navigation'
 import { db } from '@/src/db'
 import { turmas, alunos, professores, atividades } from '@/src/db/schemas'
-import { eq, desc, asc } from 'drizzle-orm' 
+import { eq, desc, asc } from 'drizzle-orm'
 import FormularioNovaTurma from '@/src/components/FormularioNovaTurma'
 import BotaoSair from '@/src/components/BotaoSair'
 import TurmaCard from '@/src/components/TurmaCard'
@@ -14,7 +14,14 @@ export default async function ProfessorDashboard() {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) redirect('/login/professor')
+  // --- INÍCIO DO MODO DETETIVE ---
+  console.log("=== DEBUG DE AUTENTICAÇÃO ===")
+  console.log("1. ID do Cookie (Quem o Supabase acha que está logado):", user.id)
+  console.log("2. E-mail logado:", user.email)
 
+  const todosProfessores = await db.select().from(professores)
+  console.log("3. Tabela bruta de professores no Drizzle:", todosProfessores)
+  // --- FIM DO MODO DETETIVE ---
   const professorList = await db.select().from(professores).where(eq(professores.authUserId, user.id)).limit(1)
   const professorAtual = professorList[0]
 
@@ -47,12 +54,12 @@ export default async function ProfessorDashboard() {
             </div>
           ) : (
             turmasDoProfessor.map((turma) => (
-              <TurmaCard 
-                key={turma.id} 
-                turma={turma} 
-                alunosAtivos={todosAlunosAtivos.filter(a => a.turmaId === turma.id)} 
-                alunosInativos={todosAlunosInativos.filter(a => a.turmaId === turma.id)} 
-                atividades={todasAtividades} 
+              <TurmaCard
+                key={turma.id}
+                turma={turma}
+                alunosAtivos={todosAlunosAtivos.filter(a => a.turmaId === turma.id)}
+                alunosInativos={todosAlunosInativos.filter(a => a.turmaId === turma.id)}
+                atividades={todasAtividades}
               />
             ))
           )}

@@ -1,126 +1,171 @@
 'use server'
 
+import { randomBytes, randomInt } from 'node:crypto'
 import { db } from '@/src/db'
 import { alunos } from '@/src/db/schemas/alunos'
-import { createClient } from '@supabase/supabase-js'
-import { eq } from 'drizzle-orm'
+import { turmas } from '@/src/db/schemas/turmas'
+import { getProfessorAutenticado } from '@/src/lib/auth'
+import { createAdminClient } from '@/src/lib/supabase'
+import { and, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
-import {getSessaoAtual} from '@/src/lib/auth'
 
-// Usa a Service Role Key para ter permissão de Admin (criar usuários sem confirmação de e-mail)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! 
-)
+function gerarSenhaTemporaria() {
+  return randomBytes(6).toString('base64url').slice(0, 8)
+}
 
-function gerarLogin(nome: string, idAleatorio: string) {
-  const partes = nome.trim().toLowerCase().split(' ')
-  const base = partes.length > 1 ? `${partes[0]}.${partes[partes.length - 1]}` : partes[0]
-  const loginLimpo = base.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  return `${loginLimpo}${idAleatorio}`
+async function verificarAlunoDoProfessor(alunoId: string, professorId: string) {
+  const [registro] = await db
+    .select({
+      id: alunos.id,
+      authUserId: alunos.authUserId,
+    })
+    .from(alunos)
+    .innerJoin(turmas, eq(alunos.turmaId, turmas.id))
+    .where(and(eq(alunos.id, alunoId), eq(turmas.professorId, professorId)))
+    .limit(1)
+
+  return registro ?? null
 }
 
 export async function adicionarAluno(formData: FormData) {
-  try {
-    const turmaId = formData.get('turmaId') as string
-    const nome = formData.get('nome') as string
-    const idade = parseInt(formData.get('idade') as string)
-    
-    // Gera o login internamente (Ex: joao.845) sem depender de funções externas
-    const primeiroNome = nome.split(' ')[0].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    const idAleatorio = Math.floor(100 + Math.random() * 900).toString()
-    const login = `${primeiroNome}.${idAleatorio}`
-    
-    const emailFantasma = `${login}@portal.local`
-    const senhaTemporaria = Math.random().toString(36).slice(-6).toUpperCase()
+  const professor = await getProfessorAutenticado()
 
-    // 1. Cria no Supabase
+  if (!professor) {
+    return { success: false, error: 'Não autorizado.' }
+  }
+
+  const turmaId = (formData.get('turmaId') as string | null)?.trim() ?? ''
+  const nome = (formData.get('nome') as string | null)?.trim() ?? ''
+  const idade = parseInt((formData.get('idade') as string | null) ?? '', 10)
+
+  if (!turmaId || !nome || Number.isNaN(idade) || idade <= 0) {
+    return { success: false, error: 'Preencha corretamente os dados do aluno.' }
+  }
+
+  const [turma] = await db
+    .select({ id: turmas.id })
+    .from(turmas)
+    .where(and(eq(turmas.id, turmaId), eq(turmas.professorId, professor.id)))
+    .limit(1)
+
+  if (!turma) {
+    return { success: false, error: 'Turma não encontrada ou sem permissão.' }
+  }
+
+  const primeiroNome = nome
+    .split(/\s+/)[0]
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '')
+
+  const idAleatorio = randomInt(100, 1000).toString()
+  const login = `${primeiroNome || 'aluno'}.${idAleatorio}`
+  const emailFantasma = `${login}@portal.local`
+  const senhaTemporaria = gerarSenhaTemporaria()
+
+  const supabaseAdmin = createAdminClient()
+  let authUserIdCriado: string | null = null
+
+  try {
     const { data: authData, error } = await supabaseAdmin.auth.admin.createUser({
       email: emailFantasma,
       password: senhaTemporaria,
       email_confirm: true,
     })
 
-    if (error) {
-      return { success: false, error: 'Erro no servidor de contas: ' + error.message }
+    if (error || !authData.user) {
+      return { success: false, error: 'Erro ao criar credenciais do aluno.' }
     }
 
-    if (!authData.user) {
-      return { success: false, error: 'Falha desconhecida ao criar usuário no Supabase.' }
-    }
+    authUserIdCriado = authData.user.id
 
-    // 2. Salva no Drizzle
     await db.insert(alunos).values({
-      nome, 
-      idade, 
-      login, 
-      senhaTemporaria, 
+      nome,
+      idade,
+      login,
+      senhaTemporaria,
       precisaTrocarSenha: true,
-      turmaId, 
-      authUserId: authData.user.id
+      turmaId,
+      authUserId: authUserIdCriado,
     })
 
-    // 3. Revalida a tela
-    revalidatePath('/dashboard/professor')
+    revalidatePath('/dashboard/professores')
     return { success: true, error: null }
-
   } catch (err) {
-    // Se estourar QUALQUER erro (banco de dados, variável nula, etc), cai aqui!
-    console.error("Erro CRÍTICO ao adicionar aluno:", err)
-    return { 
-      success: false, 
-      error: String(err)
+    console.error('Erro ao adicionar aluno:', err)
+    if (authUserIdCriado) {
+      await supabaseAdmin.auth.admin.deleteUser(authUserIdCriado)
+    }
+    return {
+      success: false,
+      error: 'Erro interno ao cadastrar aluno. Tente novamente.',
     }
   }
 }
 
-export async function resetarSenhaAluno(alunoId: string, authUserId: string | null) {
-  try {
-    const novaSenhaTemporaria = Math.random().toString(36).slice(-6).toUpperCase()
+export async function resetarSenhaAluno(alunoId: string) {
+  const professor = await getProfessorAutenticado()
+  if (!professor) return
 
-    // Type Narrowing: O TypeScript entende que, dentro deste bloco, 
-    // authUserId é garantidamente uma string, eliminando o risco de null.
-    if (authUserId) {
-      const { error } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
-        password: novaSenhaTemporaria
+  const aluno = await verificarAlunoDoProfessor(alunoId, professor.id)
+  if (!aluno) return
+
+  try {
+    const novaSenhaTemporaria = gerarSenhaTemporaria()
+
+    if (aluno.authUserId) {
+      const supabaseAdmin = createAdminClient()
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(aluno.authUserId, {
+        password: novaSenhaTemporaria,
       })
-      
+
       if (error) {
-        console.error('Erro ao redefinir no provedor:', error.message)
-        return 
+        console.error('Erro ao redefinir senha no provedor:', error.message)
+        return
       }
-    } else {
-      console.warn(`Aluno ${alunoId} não possui vínculo de autenticação (authUserId nulo).`)
     }
 
-    await db.update(alunos)
-      .set({ 
-        senhaTemporaria: novaSenhaTemporaria, 
-        precisaTrocarSenha: true 
+    await db
+      .update(alunos)
+      .set({
+        senhaTemporaria: novaSenhaTemporaria,
+        precisaTrocarSenha: true,
       })
-      .where(eq(alunos.id, alunoId))
+      .where(eq(alunos.id, aluno.id))
 
-    revalidatePath('/dashboard/professor')
-    
+    revalidatePath('/dashboard/professores')
   } catch (err) {
-    console.error("Erro ao resetar senha:", err)
+    console.error('Erro ao resetar senha:', err)
   }
 }
 
 export async function inativarAluno(alunoId: string) {
-  // Apenas muda o status para falso. Não apagamos as atividades e nem o Auth!
-  await db.update(alunos)
-    .set({ ativo: false })
-    .where(eq(alunos.id, alunoId))
+  const professor = await getProfessorAutenticado()
+  if (!professor) return
 
-  revalidatePath('/dashboard/professor')  
+  const aluno = await verificarAlunoDoProfessor(alunoId, professor.id)
+  if (!aluno) return
+
+  await db
+    .update(alunos)
+    .set({ ativo: false })
+    .where(eq(alunos.id, aluno.id))
+
+  revalidatePath('/dashboard/professores')
 }
 
-export async function restaurarAluno(alunoId: string) {
-  // Retorna o status do aluno para ativo, permitindo o login novamente
-  await db.update(alunos)
-    .set({ ativo: true })
-    .where(eq(alunos.id, alunoId))
+export async function restaurarAluno(alunoId: string): Promise<void> {
+  const professor = await getProfessorAutenticado()
+  if (!professor) return
 
-  revalidatePath('/dashboard/professor')
+  const aluno = await verificarAlunoDoProfessor(alunoId, professor.id)
+  if (!aluno) return
+
+  await db
+    .update(alunos)
+    .set({ ativo: true })
+    .where(eq(alunos.id, aluno.id))
+
+  revalidatePath('/dashboard/professores')
 }

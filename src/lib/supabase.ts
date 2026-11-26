@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 
 export async function createClientSSR() {
@@ -17,11 +18,22 @@ export async function createClientSSR() {
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options)
             })
-          } catch (error) {
+          } catch {
             // Ignora erros caso o Next.js tente setar cookies fora de uma Server Action
           }
         },
       },
     }
   )
+}
+
+export function createAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!url || !serviceRoleKey) {
+    throw new Error('Variáveis administrativas do Supabase não configuradas.')
+  }
+
+  return createClient(url, serviceRoleKey)
 }

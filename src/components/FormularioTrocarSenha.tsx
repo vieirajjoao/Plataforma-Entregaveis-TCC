@@ -3,7 +3,7 @@
 import { useActionState, useState } from 'react'
 import { atualizarSenhaPrimeiroAcesso } from '@/src/app/actions/auth'
 
-export default function FormularioTrocarSenha({ authUserId }: { authUserId: string }) {
+export default function FormularioTrocarSenha() {
   const [state, formAction, isPending] = useActionState(atualizarSenhaPrimeiroAcesso, null)
   const [mostrarSenha, setMostrarSenha] = useState(false)
 
@@ -21,17 +21,18 @@ export default function FormularioTrocarSenha({ authUserId }: { authUserId: stri
       )}
 
       <form action={formAction} className="space-y-4">
-        <input type="hidden" name="authUserId" value={authUserId} />
-
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
+          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            Nova Senha
+          </label>
           <div className="relative">
-            <input 
+            <input
               id="password"
-              type={mostrarSenha ? "text" : "password"} 
-              name="password" 
+              type={mostrarSenha ? 'text' : 'password'}
+              name="password"
               autoComplete="new-password"
-              required 
+              required
+              minLength={6}
               placeholder="Mínimo 6 caracteres"
               className="w-full border border-gray-300 rounded-lg p-3 outline-none focus:border-yellow-500"
             />
@@ -45,7 +46,7 @@ export default function FormularioTrocarSenha({ authUserId }: { authUserId: stri
           </div>
         </div>
 
-        <button 
+        <button
           type="submit"
           disabled={isPending}
           className={`w-full text-white font-semibold py-3 rounded-lg transition-colors ${

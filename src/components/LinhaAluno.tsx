@@ -37,7 +37,7 @@ export default function LinhaAluno({ aluno, envios }: { aluno: any, envios: any[
         )}
       </td>
       <td className="p-3 align-middle">
-        <BotaoAcoesAluno alunoId={aluno.id} authUserId={aluno.authUserId} />
+        <BotaoAcoesAluno alunoId={aluno.id} />
       </td>
     </tr>
   )

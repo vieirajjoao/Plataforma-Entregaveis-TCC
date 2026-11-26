@@ -1,36 +1,48 @@
 export const dynamic = 'force-dynamic'
 
-import { createClientSSR } from '@/src/lib/supabase'
 import { redirect } from 'next/navigation'
 import { db } from '@/src/db'
-import { turmas, alunos, professores, atividades } from '@/src/db/schemas'
-import { eq, desc, asc } from 'drizzle-orm'
+import { turmas, alunos, atividades } from '@/src/db/schemas'
+import { getProfessorAutenticado } from '@/src/lib/auth'
+import { eq, desc, asc, inArray } from 'drizzle-orm'
 import FormularioNovaTurma from '@/src/components/FormularioNovaTurma'
 import BotaoSair from '@/src/components/BotaoSair'
 import TurmaCard from '@/src/components/TurmaCard'
 
 export default async function ProfessorDashboard() {
-  const supabase = await createClientSSR()
-  const { data: { user } } = await supabase.auth.getUser()
+  const professorAtual = await getProfessorAutenticado()
 
-  if (!user) redirect('/login/professor')
-  // --- INÍCIO DO MODO DETETIVE ---
-  console.log("=== DEBUG DE AUTENTICAÇÃO ===")
-  console.log("1. ID do Cookie (Quem o Supabase acha que está logado):", user.id)
-  console.log("2. E-mail logado:", user.email)
+  if (!professorAtual) redirect('/login/professor')
 
-  const todosProfessores = await db.select().from(professores)
-  console.log("3. Tabela bruta de professores no Drizzle:", todosProfessores)
-  // --- FIM DO MODO DETETIVE ---
-  const professorList = await db.select().from(professores).where(eq(professores.authUserId, user.id)).limit(1)
-  const professorAtual = professorList[0]
+  const turmasDoProfessor = await db
+    .select()
+    .from(turmas)
+    .where(eq(turmas.professorId, professorAtual.id))
+    .orderBy(asc(turmas.nome))
 
-  if (!professorAtual) return <div className="p-8 text-red-600 font-bold">Professor não encontrado no banco de dados.</div>
+  const turmaIds = turmasDoProfessor.map((t) => t.id)
 
-  const turmasDoProfessor = await db.select().from(turmas).where(eq(turmas.professorId, professorAtual.id)).orderBy(asc(turmas.nome))
-  const todosAlunosAtivos = await db.select().from(alunos).where(eq(alunos.ativo, true)).orderBy(asc(alunos.nome))
-  const todosAlunosInativos = await db.select().from(alunos).where(eq(alunos.ativo, false)).orderBy(asc(alunos.nome))
-  const todasAtividades = await db.select().from(atividades).orderBy(desc(atividades.dataSubmissao))
+  const alunosDasTurmas =
+    turmaIds.length > 0
+      ? await db
+          .select()
+          .from(alunos)
+          .where(inArray(alunos.turmaId, turmaIds))
+          .orderBy(asc(alunos.nome))
+      : []
+
+  const alunosAtivos = alunosDasTurmas.filter((a) => a.ativo)
+  const alunosInativos = alunosDasTurmas.filter((a) => !a.ativo)
+  const alunoIds = alunosDasTurmas.map((a) => a.id)
+
+  const atividadesDasTurmas =
+    alunoIds.length > 0
+      ? await db
+          .select()
+          .from(atividades)
+          .where(inArray(atividades.alunoId, alunoIds))
+          .orderBy(desc(atividades.dataSubmissao))
+      : []
 
   return (
     <main className="min-h-screen bg-gray-100 p-8">
@@ -44,7 +56,7 @@ export default async function ProfessorDashboard() {
         </header>
 
         <div className="flex justify-end">
-          <FormularioNovaTurma professorId={professorAtual.id} />
+          <FormularioNovaTurma />
         </div>
 
         <section className="space-y-4">
@@ -57,14 +69,14 @@ export default async function ProfessorDashboard() {
               <TurmaCard
                 key={turma.id}
                 turma={turma}
-                alunosAtivos={todosAlunosAtivos.filter(a => a.turmaId === turma.id)}
-                alunosInativos={todosAlunosInativos.filter(a => a.turmaId === turma.id)}
-                atividades={todasAtividades}
+                alunosAtivos={alunosAtivos.filter((a) => a.turmaId === turma.id)}
+                alunosInativos={alunosInativos.filter((a) => a.turmaId === turma.id)}
+                atividades={atividadesDasTurmas}
               />
             ))
           )}
         </section>
       </div>
     </main>
-  );
+  )
 }

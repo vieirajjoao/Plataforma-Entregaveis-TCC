@@ -1,17 +1,38 @@
+import type { alunos, atividades, turmas } from '@/src/db/schemas'
 import FormularioNovoAluno from './FormularioNovoAluno'
 import LinhaAluno from './LinhaAluno'
 import { restaurarAluno } from '@/src/app/actions/alunos'
 
-export default function TurmaCard({ turma, alunosAtivos, alunosInativos, atividades }: { turma: any, alunosAtivos: any[], alunosInativos: any[], atividades: any[] }) {
+type Turma = typeof turmas.$inferSelect
+type Aluno = typeof alunos.$inferSelect
+type Atividade = typeof atividades.$inferSelect
+
+interface TurmaCardProps {
+  turma: Turma
+  alunosAtivos: Aluno[]
+  alunosInativos: Aluno[]
+  atividades: Atividade[]
+}
+
+export default function TurmaCard({
+  turma,
+  alunosAtivos,
+  alunosInativos,
+  atividades,
+}: TurmaCardProps) {
   return (
     <details className="bg-white rounded-xl shadow-sm border border-gray-200 group overflow-hidden">
       <summary className="p-6 cursor-pointer list-none flex justify-between items-center hover:bg-gray-50 transition">
         <div>
-          <h2 className="text-xl font-bold text-gray-800 group-open:text-emerald-700 transition-colors">{turma.nome}</h2>
+          <h2 className="text-xl font-bold text-gray-800 group-open:text-emerald-700 transition-colors">
+            {turma.nome}
+          </h2>
           <p className="text-sm text-gray-500 mt-1">Sala: {turma.sala}</p>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-sm bg-gray-200 px-3 py-1 rounded-full text-gray-700 font-medium">{alunosAtivos.length} Alunos</span>
+          <span className="text-sm bg-gray-200 px-3 py-1 rounded-full text-gray-700 font-medium">
+            {alunosAtivos.length} Alunos
+          </span>
           <span className="text-gray-400 group-open:rotate-180 transition-transform duration-300">▼</span>
         </div>
       </summary>
@@ -24,20 +45,26 @@ export default function TurmaCard({ turma, alunosAtivos, alunosInativos, ativida
             <table className="w-full text-left text-sm bg-white rounded-lg border border-gray-200">
               <thead className="bg-gray-100 text-gray-600">
                 <tr>
-                  <th className="p-3 rounded-tl-lg">Aluno & Entregas</th>
+                  <th className="p-3 rounded-tl-lg">Aluno &amp; Entregas</th>
                   <th className="p-3">Login</th>
                   <th className="p-3">Acesso Inicial</th>
                   <th className="p-3 rounded-tr-lg text-right">Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {alunosAtivos.map(aluno => (
-                  <LinhaAluno key={aluno.id} aluno={aluno} envios={atividades.filter(e => e.alunoId === aluno.id)} />
+                {alunosAtivos.map((aluno) => (
+                  <LinhaAluno
+                    key={aluno.id}
+                    aluno={aluno}
+                    envios={atividades.filter((e) => e.alunoId === aluno.id)}
+                  />
                 ))}
               </tbody>
             </table>
           </div>
-        ) : <p className="text-sm text-gray-400">Nenhum aluno ativo nesta turma.</p>}
+        ) : (
+          <p className="text-sm text-gray-400">Nenhum aluno ativo nesta turma.</p>
+        )}
 
         {alunosInativos.length > 0 && (
           <details className="mt-6 border-t border-gray-200 pt-4 group/inativos">
@@ -45,13 +72,21 @@ export default function TurmaCard({ turma, alunosAtivos, alunosInativos, ativida
               <span>Alunos Arquivados ({alunosInativos.length})</span>
             </summary>
             <div className="mt-4 space-y-3 pl-2 border-l-2 border-gray-200">
-              {alunosInativos.map(alunoInativo => {
+              {alunosInativos.map((alunoInativo) => {
                 const restaurarAction = restaurarAluno.bind(null, alunoInativo.id)
                 return (
-                  <div key={alunoInativo.id} className="flex justify-between items-center text-sm text-gray-500 bg-white border border-gray-200 shadow-sm p-3 rounded-lg">
-                    <span>{alunoInativo.nome} <span className="text-xs text-gray-400 ml-2">({alunoInativo.login})</span></span>
+                  <div
+                    key={alunoInativo.id}
+                    className="flex justify-between items-center text-sm text-gray-500 bg-white border border-gray-200 shadow-sm p-3 rounded-lg"
+                  >
+                    <span>
+                      {alunoInativo.nome}{' '}
+                      <span className="text-xs text-gray-400 ml-2">({alunoInativo.login})</span>
+                    </span>
                     <form action={restaurarAction}>
-                      <button type="submit" className="text-blue-500 hover:underline text-xs font-semibold">Restaurar Acesso</button>
+                      <button type="submit" className="text-blue-500 hover:underline text-xs font-semibold">
+                        Restaurar Acesso
+                      </button>
                     </form>
                   </div>
                 )
